@@ -2,11 +2,8 @@ const { Client } = require('pg')
 const {
   /**
    * Recuperamos el esquema esperado
-   *
-   * Para una primer etapa, se recomienda importar la propiedad
-   * "baseFields" reenombrandola a "expectedFields"
    */
-  baseFields: expectedFields
+  expectedFields
 } = require('./schema_base')
 
 describe('Test database', () => {
@@ -140,6 +137,54 @@ describe('Test database', () => {
                      VALUES ('user@example.com', 'user', '2024-01-02')`
 
       await expect(client.query(query)).rejects.toThrow('null value in column "city"')
+    })
+
+    test('Insert a user with an invalid timestamp for last update', async () => {
+      const query = `INSERT INTO
+                     users (email, username, birthdate, city, updated_at)
+                     VALUES ('user@example.com', 'user', '2024-01-02', 'La Plata', 'invalid_timestamp')`
+
+      await expect(client.query(query)).rejects.toThrow('invalid input syntax for type timestamp')
+    })
+
+    test('Insert a user with a short first name', async () => {
+      const query = `INSERT INTO
+                     users (email, username, birthdate, city, first_name, last_name, password)
+                     VALUES ('user@example.com', 'user', '2024-01-02', 'La Plata', 'I', 'Cantore', 'm1kr0w4y5')`
+
+      await expect(client.query(query)).rejects.toThrow('new row for relation "users" violates check constraint "first_name_length"')
+    })
+
+    test('Insert a user with a short last name', async () => {
+      const query = `INSERT INTO
+                     users (email, username, birthdate, city, first_name, last_name, password)
+                     VALUES ('user@example.com', 'user', '2024-01-02', 'La Plata', 'Ignacio', 'C', 'm1kr0w4y5')`
+
+      await expect(client.query(query)).rejects.toThrow('new row for relation "users" violates check constraint "last_name_length"')
+    })
+
+    test('Insert a user without password', async () => {
+      const query = `INSERT INTO
+                     users (email, username, birthdate, city, first_name, last_name)
+                     VALUES ('user@example.com', 'user', '2024-01-02', 'La Plata', 'Ignacio', 'Cantore')`
+
+      await expect(client.query(query)).rejects.toThrow('null value in column "password"')
+    })
+
+    test('Insert a user with an invalid value for enabled', async () => {
+      const query = `INSERT INTO
+                     users (email, username, birthdate, city, first_name, last_name, password, enabled)
+                     VALUES ('user@example.com', 'user', '2024-01-02', 'La Plata', 'Ignacio', 'Cantore', 'm1kr0w4y5', 'invalid_boolean')`
+
+      await expect(client.query(query)).rejects.toThrow('invalid input syntax for type boolean')
+    })
+
+    test('Insert a user with an invalid last access time', async () => {
+      const query = `INSERT INTO
+                     users (email, username, birthdate, city, first_name, last_name, password, last_access_time)
+                     VALUES ('user@example.com', 'user', '2024-01-02', 'La Plata', 'Ignacio', 'Cantore', 'm1kr0w4y5', 'invalid_timestamp')`
+
+      await expect(client.query(query)).rejects.toThrow('invalid input syntax for type timestamp')
     })
   })
 })
