@@ -1,16 +1,16 @@
-const { Client } = require('pg')
+const { Client } = require('pg');
 const {
   /**
    * Recuperamos el esquema esperado
    */
-  expectedFields
-} = require('./schema_base')
+  expectedFields,
+} = require('./schema_base');
 
 describe('Test database', () => {
   /**
    * Variables globales usadas por diferentes tests
    */
-  let client
+  let client;
 
   /**
    * Generamos la configuracion con la base de datos y
@@ -21,17 +21,17 @@ describe('Test database', () => {
    */
   beforeAll(async () => {
     client = new Client({
-      connectionString: process.env.DATABASE_URL
-    })
-    await client.connect()
-  })
+      connectionString: process.env.DATABASE_URL,
+    });
+    await client.connect();
+  });
 
   /**
    * Cerramos la conexion con la base de datos
    */
   afterAll(async () => {
-    await client.end()
-  })
+    await client.end();
+  });
 
   /**
    * Validamos el esquema de la base de datos
@@ -41,8 +41,8 @@ describe('Test database', () => {
      * Variable donde vamos a almacenar los campos
      * recuperados de la base de datos
      */
-    let fields
-    let result
+    let fields;
+    let result;
 
     /**
      * Generamos un objeto para simplificar el acceso en los test
@@ -59,14 +59,14 @@ describe('Test database', () => {
           information_schema.columns
         WHERE
           table_name = $1::text`,
-        ['users']
-      )
+        ['users'],
+      );
 
       fields = result.rows.reduce((acc, field) => {
-        acc[field.column_name] = field.data_type
-        return acc
-      }, {})
-    })
+        acc[field.column_name] = field.data_type;
+        return acc;
+      }, {});
+    });
 
     describe('Validate fields name', () => {
       /**
@@ -74,9 +74,9 @@ describe('Test database', () => {
        * encuentren presentes
        */
       test.each(expectedFields)('Validate field $name', ({ name }) => {
-        expect(Object.keys(fields)).toContain(name)
-      })
-    })
+        expect(Object.keys(fields)).toContain(name);
+      });
+    });
 
     describe('Validate fields type', () => {
       /**
@@ -84,107 +84,107 @@ describe('Test database', () => {
        * del tipo esperado
        */
       test.each(expectedFields)('Validate field $name to be type "$type"', ({ name, type }) => {
-        expect(fields[name]).toBe(type)
-      })
-    })
-  })
+        expect(fields[name]).toBe(type);
+      });
+    });
+  });
 
   describe('Validate insertion', () => {
     afterEach(async () => {
-      await client.query('TRUNCATE users')
-    })
+      await client.query('TRUNCATE users');
+    });
 
     test('Insert a valid user', async () => {
       let result = await client.query(
         `INSERT INTO
          users (email, username, birthdate, city, first_name, last_name, password)
-         VALUES ('user@example.com', 'user', '2024-01-02', 'La Plata', 'Ignacio', 'Cantore', 'm1kr0w4y5')`
-      )
+         VALUES ('user@example.com', 'user', '2024-01-02', 'La Plata', 'Ignacio', 'Cantore', 'm1kr0w4y5')`,
+      );
 
-      expect(result.rowCount).toBe(1)
+      expect(result.rowCount).toBe(1);
 
       result = await client.query(
-        'SELECT * FROM users'
-      )
+        'SELECT * FROM users',
+      );
 
-      const user = result.rows[0]
-      const userCreatedAt = new Date(user.created_at)
-      const currentDate = new Date()
+      const user = result.rows[0];
+      const userCreatedAt = new Date(user.created_at);
+      const currentDate = new Date();
 
-      expect(user.email).toBe('user@example.com')
-      expect(userCreatedAt.getFullYear()).toBe(currentDate.getFullYear())
-    })
+      expect(user.email).toBe('user@example.com');
+      expect(userCreatedAt.getFullYear()).toBe(currentDate.getFullYear());
+    });
 
     test('Insert a user with an invalid email', async () => {
       const query = `INSERT INTO
                      users (email, username, birthdate, city, first_name, last_name, password)
-                     VALUES ('user', 'user', '2024-01-02', 'La Plata', 'Ignacio', 'Cantore', 'm1kr0w4y5')`
+                     VALUES ('user', 'user', '2024-01-02', 'La Plata', 'Ignacio', 'Cantore', 'm1kr0w4y5')`;
 
-      await expect(client.query(query)).rejects.toThrow('users_email_check')
-    })
+      await expect(client.query(query)).rejects.toThrow('users_email_check');
+    });
 
     test('Insert a user with an invalid birthdate', async () => {
       const query = `INSERT INTO
                      users (email, username, birthdate, city)
-                     VALUES ('user@example.com', 'user', 'invalid_date', 'La Plata')`
+                     VALUES ('user@example.com', 'user', 'invalid_date', 'La Plata')`;
 
-      await expect(client.query(query)).rejects.toThrow('invalid input syntax for type date')
-    })
+      await expect(client.query(query)).rejects.toThrow('invalid input syntax for type date');
+    });
 
     test('Insert a user without city', async () => {
       const query = `INSERT INTO
                      users (email, username, birthdate)
-                     VALUES ('user@example.com', 'user', '2024-01-02')`
+                     VALUES ('user@example.com', 'user', '2024-01-02')`;
 
-      await expect(client.query(query)).rejects.toThrow('null value in column "city"')
-    })
+      await expect(client.query(query)).rejects.toThrow('null value in column "city"');
+    });
 
     test('Insert a user with an invalid timestamp for last update', async () => {
       const query = `INSERT INTO
                      users (email, username, birthdate, city, updated_at)
-                     VALUES ('user@example.com', 'user', '2024-01-02', 'La Plata', 'invalid_timestamp')`
+                     VALUES ('user@example.com', 'user', '2024-01-02', 'La Plata', 'invalid_timestamp')`;
 
-      await expect(client.query(query)).rejects.toThrow('invalid input syntax for type timestamp')
-    })
+      await expect(client.query(query)).rejects.toThrow('invalid input syntax for type timestamp');
+    });
 
     test('Insert a user with a short first name', async () => {
       const query = `INSERT INTO
                      users (email, username, birthdate, city, first_name, last_name, password)
-                     VALUES ('user@example.com', 'user', '2024-01-02', 'La Plata', 'I', 'Cantore', 'm1kr0w4y5')`
+                     VALUES ('user@example.com', 'user', '2024-01-02', 'La Plata', 'I', 'Cantore', 'm1kr0w4y5')`;
 
-      await expect(client.query(query)).rejects.toThrow('new row for relation "users" violates check constraint "first_name_length"')
-    })
+      await expect(client.query(query)).rejects.toThrow('new row for relation "users" violates check constraint "first_name_length"');
+    });
 
     test('Insert a user with a short last name', async () => {
       const query = `INSERT INTO
                      users (email, username, birthdate, city, first_name, last_name, password)
-                     VALUES ('user@example.com', 'user', '2024-01-02', 'La Plata', 'Ignacio', 'C', 'm1kr0w4y5')`
+                     VALUES ('user@example.com', 'user', '2024-01-02', 'La Plata', 'Ignacio', 'C', 'm1kr0w4y5')`;
 
-      await expect(client.query(query)).rejects.toThrow('new row for relation "users" violates check constraint "last_name_length"')
-    })
+      await expect(client.query(query)).rejects.toThrow('new row for relation "users" violates check constraint "last_name_length"');
+    });
 
     test('Insert a user without password', async () => {
       const query = `INSERT INTO
                      users (email, username, birthdate, city, first_name, last_name)
-                     VALUES ('user@example.com', 'user', '2024-01-02', 'La Plata', 'Ignacio', 'Cantore')`
+                     VALUES ('user@example.com', 'user', '2024-01-02', 'La Plata', 'Ignacio', 'Cantore')`;
 
-      await expect(client.query(query)).rejects.toThrow('null value in column "password"')
-    })
+      await expect(client.query(query)).rejects.toThrow('null value in column "password"');
+    });
 
     test('Insert a user with an invalid value for enabled', async () => {
       const query = `INSERT INTO
                      users (email, username, birthdate, city, first_name, last_name, password, enabled)
-                     VALUES ('user@example.com', 'user', '2024-01-02', 'La Plata', 'Ignacio', 'Cantore', 'm1kr0w4y5', 'invalid_boolean')`
+                     VALUES ('user@example.com', 'user', '2024-01-02', 'La Plata', 'Ignacio', 'Cantore', 'm1kr0w4y5', 'invalid_boolean')`;
 
-      await expect(client.query(query)).rejects.toThrow('invalid input syntax for type boolean')
-    })
+      await expect(client.query(query)).rejects.toThrow('invalid input syntax for type boolean');
+    });
 
     test('Insert a user with an invalid last access time', async () => {
       const query = `INSERT INTO
                      users (email, username, birthdate, city, first_name, last_name, password, last_access_time)
-                     VALUES ('user@example.com', 'user', '2024-01-02', 'La Plata', 'Ignacio', 'Cantore', 'm1kr0w4y5', 'invalid_timestamp')`
+                     VALUES ('user@example.com', 'user', '2024-01-02', 'La Plata', 'Ignacio', 'Cantore', 'm1kr0w4y5', 'invalid_timestamp')`;
 
-      await expect(client.query(query)).rejects.toThrow('invalid input syntax for type timestamp')
-    })
-  })
-})
+      await expect(client.query(query)).rejects.toThrow('invalid input syntax for type timestamp');
+    });
+  });
+});
